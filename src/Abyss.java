@@ -193,7 +193,7 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
 
         boolean bankOpen = Bank.isOpen();
-        boolean wearingOutfit = lp.wearingOutfit(itemOutfit);
+        boolean wearingOutfit = lp.inEquipment(itemOutfit);
 
         Logger.debug("no state to set");
     }

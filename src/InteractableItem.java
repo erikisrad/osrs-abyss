@@ -35,7 +35,7 @@ public class InteractableItem {
         //find nearest item that matches what we want
         GroundItem nearItem = GroundItems.closest(
                 item -> item.isOnScreen()
-                && item.getID() == this.ID
+                && item.getID() == this.IDs[0]
                 && item.distance(player.getTile()) <= radius
                 && item.canReach()
                 && area.contains(item.getTile()));
@@ -64,7 +64,11 @@ public class InteractableItem {
      * @return int, count of item held
      */
     public int inInventoy(){
-        return(Inventory.count(this.ID));
+        int count = 0;
+        for(int i : this.getIDs()){
+            count += Inventory.count(i);
+        }
+        return count;
     }
 
 }

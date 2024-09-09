@@ -2,6 +2,7 @@ import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.walking.impl.Walking;
 import org.dreambot.api.utilities.Logger;
+import org.dreambot.api.wrappers.interactive.Player;
 
 public class Navigator {
 
@@ -71,12 +72,12 @@ public class Navigator {
      * @param interval int, how often we want to click (ms)
      * @return boolean, true if we are walking without issue
      */
-    public boolean runIfTime(Area area, int interval){
+    public boolean runIfTime(Area area, int interval, Player player){
         long currentTime = System.currentTimeMillis();
 
         if(((currentTime - this.lastMove) > (interval + randomPad)
                 && !area.contains(Walking.getDestination()))
-                || !Abyss.localPlayer.isMoving()) {
+                || !player.isMoving()) {
 
             setRandomPad();
             this.lastMove = currentTime;
@@ -94,7 +95,7 @@ public class Navigator {
      * @param area Area, where we want to go
      * @return boolean, true if we are walking without issue
      */
-    public boolean runIfTime(Area area){
-        return runIfTime(area, autoInterval());
+    public boolean runIfTime(Area area, Player player){
+        return runIfTime(area, autoInterval(), player);
     }
 }
