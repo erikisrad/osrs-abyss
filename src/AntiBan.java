@@ -13,6 +13,8 @@ public class AntiBan {
     final static private int DEFAULT_LONG_DELAY = 1200;
 
     private final AbstractScript s;
+    private final int tickRate;
+    private final int jiggleFreq;
     private final int delayShort;
     private final int delayShortMin;
     private final int delayShortMax;
@@ -22,8 +24,11 @@ public class AntiBan {
     private long lastBanEvade;
     private long lastIdle;
 
-    public AntiBan(AbstractScript script, int delayShort, int delayLong) {
+    public AntiBan(AbstractScript script, int tickRate, int delayShort, int delayLong) {
         this.s = script;
+        this.tickRate = tickRate;
+        this.jiggleFreq = Math.max(2, 2400/tickRate);
+        Logger.info("jiggle freq is " + this.jiggleFreq);
         this.delayShort = delayShort;
         this.delayShortMin = (int) (delayShort*.80);
         this.delayShortMax = (int) (delayLong*1.20);
@@ -33,8 +38,12 @@ public class AntiBan {
         this.lastBanEvade = this.lastIdle = System.currentTimeMillis();
     }
 
-    public AntiBan(AbstractScript script) {
-        this(script, DEFAULT_SHORT_DELAY, DEFAULT_LONG_DELAY);
+    public AntiBan(AbstractScript script, int tickRate) {
+        this(script, tickRate, DEFAULT_SHORT_DELAY, DEFAULT_LONG_DELAY);
+    }
+
+    public int getTick(){
+        return Calculations.random(Math.max(0, tickRate-25), tickRate+25);
     }
 
     /**
@@ -78,12 +87,19 @@ public class AntiBan {
     }
 
     /**
+     * @return a random value between the min/max long delay
+     */
+    public int getLongDelay(){
+        return Calculations.random(this.delayLongMin, this.delayLongMax);
+    }
+
+    /**
      * Moves the mouse a random small distance so we appear human
      * @return void
      * @see Mouse
      */
     public void mouseJiggle(){
-        if(Calculations.random(0,2) == 1 && Mouse.isMouseInScreen()) {
+        if(Calculations.random(0,jiggleFreq) == 1 && Mouse.isMouseInScreen()) {
             int half = 3;
             int x = Mouse.getX();
             int y = Mouse.getY();

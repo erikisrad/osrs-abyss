@@ -72,7 +72,11 @@ public class CameraHandler {
      */
     public boolean checkZoom(){
         this.currentZoom = Camera.getZoom();
-        return this.minZoom <= this.currentZoom && this.currentZoom <= this.maxZoom;
+
+        boolean res = this.minZoom <= this.currentZoom && this.currentZoom <= this.maxZoom;
+        if(!res) Logger.info("current zoom of " + this.currentZoom +
+                " is not between " + this.minZoom + " and " + this.maxZoom);
+        return res;
     }
 
     /**

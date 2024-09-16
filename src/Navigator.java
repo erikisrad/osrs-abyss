@@ -1,5 +1,6 @@
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
+import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.walking.impl.Walking;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.Player;
@@ -12,23 +13,37 @@ public class Navigator {
     private static final int MIN_PAD = 25;
     private static final int MAX_PAD = 75;
 
+    private long lastMove;
+    private int intervalWalk;
+    private int intervalRun;
+
     // the stamina value at which we should enable running
     private final int runStamSet;
     //slightly change runStamSet so we don't suspiciously toggle run at the same value every time
     private int runStamRoll;
-    private long lastMove;
+    
 
-    public void setRandomPad() {
+    private void setRandomPad() {
         this.randomPad = Calculations.random(MIN_PAD,MAX_PAD);
+    }
+
+    private void setRunStamRoll(){
+        this.runStamRoll = Calculations.random(
+            Math.max(0, this.runStamSet-5),
+            Math.min(100, this.runStamSet+5));
     }
 
     private int randomPad;
 
+    public Navigator(int runStam, int intervalWalk, int intervalRun){
+        this.runStamSet = this.runStamRoll = runStam;
+        this.intervalWalk = intervalWalk;
+        this.intervalRun = intervalRun;
+        setRandomPad();
+    }
 
     public Navigator(int runStam){
-        this.runStamRoll = this.runStamSet = runStam;
-        this.lastMove = 0;
-
+        this(DEFAULT_RUN_STAM, DEFAULT_WALK_INTERVAL, DEFAULT_RUN_INTERVAL);
     }
 
     public Navigator() {
@@ -40,17 +55,22 @@ public class Navigator {
      */
     public void toggleRun(){
         Walking.toggleRun();
-        this.runStamRoll = Calculations.random(
-                Math.max(0, this.runStamSet-5),
-                Math.min(100, this.runStamSet+5));
+        setRunStamRoll();
         Logger.debug("run threshhold is now: " + this.runStamRoll);
+    }
+
+    /**
+     * resets last move so player moves asap
+     */
+    public void resetLastMove(){
+        lastMove = 0;
     }
 
     /**
      * determines whether we should toggle running on
      * @return boolean, true if we should run
      */
-    public boolean shouldRun() {
+    public boolean shouldToggleRun() {
         return Walking.getRunEnergy() >= this.runStamRoll && !Walking.isRunEnabled();
     }
 
@@ -60,42 +80,34 @@ public class Navigator {
      */
     public int autoInterval(){
         if(Walking.isRunEnabled()){
-            return DEFAULT_RUN_INTERVAL;
+            return this.intervalRun;
         }else{
-            return DEFAULT_WALK_INTERVAL;
+            return this.intervalWalk;
         }
     }
 
     /**
      * moves towards the specified area, clicking at specified intervals
      * @param area Area, where we want to go
-     * @param interval int, how often we want to click (ms)
      * @return boolean, true if we are walking without issue
      */
-    public boolean runIfTime(Area area, int interval, Player player){
+    public boolean moveIfTime(Area area, Player player){
         long currentTime = System.currentTimeMillis();
+        if(shouldToggleRun()) toggleRun();
 
-        if(((currentTime - this.lastMove) > (interval + randomPad)
+        if(((currentTime - this.lastMove) > (autoInterval() + randomPad)
                 && !area.contains(Walking.getDestination()))
                 || !player.isMoving()) {
 
             setRandomPad();
             this.lastMove = currentTime;
             Logger.debug("clicking to move");
-            if(shouldRun()) toggleRun();
-            return Walking.walk(area.getRandomTile());
+            boolean success = Walking.walk(area.getRandomTile());
+            if(!success){ Logger.error("failed to move");}
+            return success;
         }else{
             Logger.debug("too early to move");
             return true;
         }
-    }
-
-    /**
-     * moves towards the specified area, clicking at reasonable intervals
-     * @param area Area, where we want to go
-     * @return boolean, true if we are walking without issue
-     */
-    public boolean runIfTime(Area area, Player player){
-        return runIfTime(area, autoInterval(), player);
     }
 }

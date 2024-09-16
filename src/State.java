@@ -11,10 +11,8 @@ public enum State{
     //LOGIC
     USING_NATURE_ALTAR,
     ACTIVATING_DOOR,
-    GOING_TO_DOOR,
-    SEARCHING_OUTER_RING,
-    MOVING_TO_ROCK,
-    HITTING_ROCK,
+    GOING_TO_BUTTON,
+    NAVIGATING_ABYSS,
     TELEPORTING_TO_ABYSS,
     GOING_TO_MAGE,
     EQUIPPING_OUTFIT,
@@ -25,7 +23,9 @@ public enum State{
     USING_ENCLAVE_BANK,
     TELEPORTING_TO_EDGEVILLE,
     USING_EDGEVILLE_BANK,
-    GOING_TO_EDGEVILLE;
+    GOING_TO_EDGEVILLE,
+    CLOSING_BANK,
+    NO_ACTION;
 
     private static State currentState;
 
@@ -39,41 +39,4 @@ public enum State{
             Logger.log(currentState);
         }
     }
-
-    public static void setState(int stateNum){
-        State desiredState;
-        switch(stateNum){
-            case 0:
-                desiredState = STAGE_ZERO;
-                break;
-            case 1:
-                desiredState = STAGE_ONE;
-                break;
-            case 2:
-                desiredState = STAGE_TWO;
-                break;
-            case 3:
-                desiredState = STAGE_THREE;
-                break;
-            case 4:
-                desiredState = STAGE_FOUR;
-                break;
-            case 5:
-                desiredState = STAGE_FIVE;
-                break;
-            case 6:
-                desiredState = STAGE_SIX;
-                break;
-            default:
-                Logger.error("invalid state: " + stateNum);
-                return;
-        }
-        if(!(currentState == desiredState)){
-            currentState = desiredState;
-            Logger.log(currentState);
-        }
-    }
-
-
-
 }
