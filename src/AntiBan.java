@@ -99,7 +99,7 @@ public class AntiBan {
      * @see Mouse
      */
     public void mouseJiggle(){
-        if(Calculations.random(0,jiggleFreq) == 1 && Mouse.isMouseInScreen()) {
+        if(Calculations.random(0,this.jiggleFreq) == 1 && Mouse.isMouseInScreen()) {
             int half = 3;
             int x = Mouse.getX();
             int y = Mouse.getY();
@@ -111,5 +111,7 @@ public class AntiBan {
             Mouse.move(new Point(x, y));
         }
     }
+
+
 
 }
