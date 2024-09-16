@@ -1,2 +1,2 @@
 # osrs-abyss
- an osrs for abyssal runs
+ an osrs script for abyssal runs
