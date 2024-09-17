@@ -11,31 +11,33 @@ import org.dreambot.api.script.ScriptManager;
 import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.script.listener.ChatListener;
 import org.dreambot.api.utilities.Logger;
-import org.dreambot.api.utilities.Sleep;
-import org.dreambot.api.wrappers.interactive.Character;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.wrappers.widgets.message.Message;
 
 import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 @ScriptManifest(name = "Abyss", description = "x", author = "erik",
         version = 1.0, category = Category.RUNECRAFTING, image = "")
 
 public class Abyss extends AbstractScript implements ChatListener {
 
-    final int MAX_INVENTORY = 28;
-
     private AntiBan ab;
     private CameraHandler ch;
     private Navigator n;
     private Navigator navAbyss;
     private Player lp;
+    private String logName;
+    private BufferedWriter logWriter;
 
     final private int retries = 20;
 
     //areas
-    DefinedArea areaWildClose = new DefinedArea("wildClose", 3087, 3520, 3120, 3536);
-    DefinedArea areaWildFar = new DefinedArea("wildFar", 3113, 3540, 3087, 3567);
     DefinedArea areaMageTeleBig = new DefinedArea("mageTeleBig", 3102, 3561, 3108, 3539);
     DefinedArea areaMageTeleSmall = new DefinedArea("mageTeleSmall", 3102, 3561, 3110, 3556);
     DefinedArea areaEnclave = new DefinedArea("enclave", 3155, 3646, 3123, 3617);
@@ -43,19 +45,13 @@ public class Abyss extends AbstractScript implements ChatListener {
     DefinedArea areaOuterRing = new DefinedArea("outerRing", 3011, 4860, 3069, 4804);
     DefinedArea areaInnerRing = new DefinedArea("innerRing", 3024, 4846, 3054, 4817);
     DefinedArea areaNatureButton = new DefinedArea("natureButton", 3030, 4840, 3048, 4846);
-    DefinedArea areaNeRing = new DefinedArea("neRing", 3039, 4832, 3069, 4861);
-    DefinedArea areaNwRing = new DefinedArea("nwRing", 3038, 4832, 3010, 4860);
-    DefinedArea areaSwRing = new DefinedArea("swRing", 3038, 4831, 3010, 4804);
-    DefinedArea areaSeRing = new DefinedArea("seRing", 3039, 4831, 3067, 4804);
-    DefinedArea areaNeSpawn = new DefinedArea("neSpawn", 3053, 4851, 3057, 4847);
-    DefinedArea areaNwSpawn = new DefinedArea("nwSpawn", 3020, 4851, 3024, 4847);
-    DefinedArea areaSwSpawn = new DefinedArea("swSpawn", 3019, 4815, 3023, 4811);
-    DefinedArea areaSeSpawn = new DefinedArea("seSpawn", 3054, 4814, 3058, 4810);
     DefinedArea areaNatureRealm = new DefinedArea("natureRealm", 2390, 4851, 2409, 4832);
     DefinedArea areaBankEdgeville = new DefinedArea("bankEdgeville", 3083, 3503, 3104, 3483);
 
     //items
     InteractableItem itemPureEss = new InteractableItem("Pure essence", 7936);
+    InteractableItem itemNatRune = new InteractableItem("Nature rune", 561);
+    InteractableItem itemSmallPouch = new InteractableItem("Small pouch", 5509);
 
     //outfit
     InteractableItem[] itemOutfit = {
@@ -78,12 +74,38 @@ public class Abyss extends AbstractScript implements ChatListener {
     InteractableProp propBankChest = new InteractableProp("Bank chest", 26711);
     InteractableProp propBankBooth = new InteractableProp("Bank booth", 10355);
 
+    public BufferedWriter createLog(){
+        Date date = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd");
+        logName = dateFormat.format(date) + "abyss_output.txt";
+        File file = new File(logName);
+        BufferedWriter out = null;
+        try{
+            out = new BufferedWriter(new FileWriter(file, true));
+        }catch(IOException e){
+            Logger.error("failed to create log: " + e);
+            ScriptManager.getScriptManager().stop();
+        }
+        return out;
+    }
+
+    public void writeLog(String msg){
+        try {
+            logWriter.write(msg);
+            logWriter.close();
+        } catch (IOException e) {
+            Logger.error("failed to write log message: " + msg);
+            Logger.error(e);
+        }
+    }
+
     @Override
     public void onStart() {
         ab = new AntiBan(this, 300);
         ch = new CameraHandler(220, 340, 300, 383);
         n = new Navigator();
         navAbyss = new Navigator(0, 1200, 2200);
+        //logWriter = createLog();
         Logger.log("booting script...");
 
         int tries = 0;
@@ -108,7 +130,6 @@ public class Abyss extends AbstractScript implements ChatListener {
     final String rockSucceed = "..and manage to break through the rock.";
     final String gapFail = "...but you are not agile enough to get through the gap.";
     final String gapSucceed = "...and you manage to crawl through.";
-
 
     @Override
     public void onMessage(Message message) {
@@ -161,7 +182,37 @@ public class Abyss extends AbstractScript implements ChatListener {
 
             //LOGIC
             case USING_NATURE_ALTAR:
-                if(!propNatAltar.interactWith(lp)) {
+
+                //try and craft runes
+                if(propNatAltar.interactWith(lp)) {
+                    Logger.debug("crafted runes");
+                    ab.idleShort();
+
+                    //try and empty pouch
+                    if(itemSmallPouch.interact("Empty")){
+                        Logger.debug("emptied pouch");
+                        ab.idleShort();
+                        InteractableProp.resetLastInteract();
+
+                        //try and craft more runes
+                        if(propNatAltar.interactWith(lp)) {
+                            int runeCount = itemNatRune.inInventoy();
+                            Logger.info("crafted " + runeCount + " runes");
+
+                        //if we emptied a pouch but couldn't craft more
+                        }else{
+                            Logger.error("failed to craft runes again");
+                        }
+
+                    //if we couldn't empty pouch
+                    }else if(itemSmallPouch.inInventory()){
+                        Logger.error("failed to empty pouch");
+                    }else{
+                        Logger.warn("no pouch in inventory");
+                    }
+
+                //if we couldn't craft any runes at all
+                }else{
                     Logger.warn("failed to start crafting runes");
                 }
                 break;
@@ -231,18 +282,57 @@ public class Abyss extends AbstractScript implements ChatListener {
 
             case WITHDRAWING_ESS:
                 Inventory.open();
-                if(!Inventory.isEmpty()){
-                    Bank.depositAllItems();
+
+                //try and make sure we have a pouch
+                if(!itemSmallPouch.inInventory()){
+                    Logger.warn("we don't have a pouch");
+                    if(!Inventory.isEmpty()) Bank.depositAllItems();
+                    if(!itemSmallPouch.withdraw()){
+
+                        //if we can't get a pouch, just get ess
+                        Logger.error("couldn't withdraw pouch");
+                        if(itemPureEss.withdraw(28)) {
+                            Logger.debug("withdrew ess");
+                            break;
+
+                        }else{
+                            Logger.error("failed to withdraw ess with no pouch");
+                            return -1;
+                        }
+                    }
+                }
+
+                //if we have pouch, deposit everything else
+                if(!itemSmallPouch.onlyContains()){
+                    itemSmallPouch.depositAllExcept();
                     ab.idleShort();
                 }
 
-                if(!Bank.withdraw(itemPureEss.getName(), 28)){
-                    Logger.error("failed to withdraw ess");
-                    return -1;
-
-                }else{
+                //get full inventory of ess
+                if(itemPureEss.withdraw(28)){
                     Logger.debug("withdrew ess");
                     ab.idleShort();
+
+                    //fill pouch
+                    if(itemSmallPouch.interact("Fill")) {
+                        Logger.debug("filled pouch");
+                        ab.idleShort();
+
+                        //fill inventory with ess again
+                        if(itemPureEss.withdraw(28)) {
+                            Logger.debug("withdrew ess again");
+
+                        }else{
+                            Logger.warn("failed to get more ess");
+                        }
+
+                    }else{
+                        Logger.warn("failed to fill pouch");
+                    }
+
+                }else{
+                    Logger.error("failed to withdraw ess");
+                    return -1;
                 }
                 break;
 
@@ -387,7 +477,7 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
 
         //STEP 6 - CHECKING ESSENCE
-        if(bankOpen && MAX_INVENTORY>essCount){
+        if(bankOpen && 20>essCount){
             State.setState(State.WITHDRAWING_ESS);
             return;
         }

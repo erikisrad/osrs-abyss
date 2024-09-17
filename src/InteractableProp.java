@@ -8,9 +8,6 @@ import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.methods.map.Area;
 
-import java.util.Arrays;
-import java.util.Objects;
-
 public class InteractableProp {
 
     static private Pair<String, Long> lastInteract = new Pair<>("name", 0L);
@@ -18,6 +15,8 @@ public class InteractableProp {
     final static int DEFAULT_WAIT = 4200;
     final static boolean DEFAULT_MOVING = true;
     final static boolean DEFAULT_ANIMATING = true;
+
+    static int waitRoll = DEFAULT_WAIT;
 
     public String getName() {
         return name;
@@ -29,7 +28,7 @@ public class InteractableProp {
 
     final private String name;
     final private int ID;
-    private double wait;
+    private int wait;
     final private double waitMin;
     final private double waitMax;
     final private boolean moving;
@@ -104,11 +103,13 @@ public class InteractableProp {
         long lastTime = lastInteract.getValue();
 
         //if current prop isn't our last interacted and lastTime is still more than currentTime - wait
-        boolean shouldNot = (lastInteract.getKey().equals(propName) && lastTime > currentTime - DEFAULT_WAIT);
+        boolean shouldNot = (lastInteract.getKey().equals(propName) && lastTime > currentTime - waitRoll);
 
         if(shouldNot) {
             Logger.info("too early to interact with " + propName
                     + " (" + (currentTime - lastTime) + " / " + DEFAULT_WAIT + " ms)");
+        }else{
+            generateStaticWait();
         }
 
         //TODO: make this not a double negative
@@ -123,7 +124,11 @@ public class InteractableProp {
      * rolls a new random wait value
      */
     public void generateWait() {
-        this.wait = Math.round(Calculations.random(this.waitMin,this.waitMax)*100)/100D;
+        this.wait = (int) Math.round(Calculations.random(this.waitMin,this.waitMax));
+    }
+
+    private static void generateStaticWait(){
+        waitRoll = (int) Math.round(Calculations.random(DEFAULT_WAIT*.9,DEFAULT_WAIT*1.1));
     }
 
     /**
@@ -157,7 +162,7 @@ public class InteractableProp {
             Logger.info("found " + this.name + " to " + action);
             boolean success = this.npc.interact(action);
             if(success){
-                Logger.info("sucessfully did " + action + " on " + this.name);
+                Logger.info("successfully did " + action + " on " + this.name);
                 setLastInteract();
             }else{
                 Logger.error("failed " + action + " on " + this.name);
@@ -196,7 +201,7 @@ public class InteractableProp {
             Logger.info("found " + this.name + " to " + action);
             boolean success = this.gObj.interact(action);
             if(success){
-                Logger.info("sucessfully " + action + " on " + this.name);
+                Logger.info("successfully " + action + " on " + this.name);
                 setLastInteract();
             }else{
                 Logger.error("failed " + action + " on " + this.name);
@@ -230,7 +235,7 @@ public class InteractableProp {
             Logger.info("found " + this.name + " to do default action");
             boolean success = this.gObj.interact();
             if(success){
-                Logger.info("sucessfully did default action on " + this.name);
+                Logger.info("successfully did default action on " + this.name);
                 setLastInteract();
             }else{
                 Logger.error("failed to do default action on " + this.name);
@@ -305,7 +310,7 @@ public class InteractableProp {
         //let's try interacting with it and return our success
         boolean success = closestProp.interact();
         if(success){
-            Logger.info("sucessfully did default action on " + closestName);
+            Logger.info("successfully did default action on " + closestName);
             setLastInteract(closestName);
         }else{
             Logger.error("failed to do default action on " + closestName);

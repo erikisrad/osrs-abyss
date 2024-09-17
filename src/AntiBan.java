@@ -111,7 +111,4 @@ public class AntiBan {
             Mouse.move(new Point(x, y));
         }
     }
-
-
-
 }

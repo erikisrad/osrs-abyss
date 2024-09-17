@@ -1,4 +1,5 @@
 import org.dreambot.api.methods.container.impl.Inventory;
+import org.dreambot.api.methods.container.impl.bank.Bank;
 import org.dreambot.api.methods.container.impl.equipment.Equipment;
 import org.dreambot.api.methods.item.GroundItems;
 import org.dreambot.api.methods.map.Area;
@@ -128,4 +129,51 @@ public class InteractableItem {
         return false;
     }
 
+    /**
+     * wrapper for Bank.depositAllExcept
+     * @return true if we successfully deposited all but this item
+     */
+    public boolean depositAllExcept(){
+        return Bank.depositAllExcept(this.getIDs());
+    }
+
+    /**
+     * wrapper for Inventory.onlyContains
+     * @return true if inventoy only contains this item
+     */
+    public boolean onlyContains(){
+        return Inventory.onlyContains(this.getIDs());
+    }
+
+    /**
+     * tries to withdraw an amount of items from bank - uses all available IDs
+     * @param amount
+     * @return true if withdraw succeeded
+     */
+    public boolean withdraw(int amount){
+        for(int id : this.IDs){
+            if(Bank.withdraw(id, amount)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * tries to withdraw one copy of an item
+     * @return true if withdraw succeeds
+     */
+    public boolean withdraw(){
+        return withdraw(1);
+    }
+
+    /**
+     * tries to specified action on item - uses all available IDs
+     * @param action
+     * @return true if interact succeeded
+     */
+    public boolean interact(String action){
+        for(int id : this.IDs){
+            if(Inventory.interact(id, action)) return true;
+        }
+        return false;
+    }
 }
