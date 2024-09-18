@@ -107,7 +107,7 @@ public class InteractableProp {
 
         if(shouldNot) {
             Logger.info("too early to interact with " + propName
-                    + " (" + (currentTime - lastTime) + " / " + DEFAULT_WAIT + " ms)");
+                    + " (" + (currentTime - lastTime) + " / " + waitRoll + " ms)");
         }else{
             generateStaticWait();
         }

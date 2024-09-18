@@ -51,7 +51,12 @@ public class Abyss extends AbstractScript implements ChatListener {
     //items
     InteractableItem itemPureEss = new InteractableItem("Pure essence", 7936);
     InteractableItem itemNatRune = new InteractableItem("Nature rune", 561);
-    InteractableItem itemSmallPouch = new InteractableItem("Small pouch", 5509);
+
+    InteractableItem[] itemPouches = {
+            new InteractableItem("Small pouch", 5509),
+            new InteractableItem("Medium pouch", 5510),
+            new InteractableItem("Large pouch", 5512)
+    };
 
     //outfit
     InteractableItem[] itemOutfit = {
@@ -185,30 +190,33 @@ public class Abyss extends AbstractScript implements ChatListener {
 
                 //try and craft runes
                 if(propNatAltar.interactWith(lp)) {
-                    Logger.debug("crafted runes");
-                    ab.idleShort();
+                    Logger.info("crafting runes");
+                    sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100);
 
                     //try and empty pouch
-                    if(itemSmallPouch.interact("Empty")){
-                        Logger.debug("emptied pouch");
-                        ab.idleShort();
-                        InteractableProp.resetLastInteract();
+                    for(InteractableItem pouch : itemPouches) {
+                        if (pouch.interact("Empty")) {
+                            Logger.info("emptied " + pouch.getName());
+                            ab.idleShort();
+                            InteractableProp.resetLastInteract();
 
-                        //try and craft more runes
-                        if(propNatAltar.interactWith(lp)) {
-                            int runeCount = itemNatRune.inInventoy();
-                            Logger.info("crafted " + runeCount + " runes");
+                            //if we couldn't empty pouch
+                        } else if (pouch.inInventory()) {
+                            Logger.error("failed to empty " + pouch.getName());
+                        } else {
+                            Logger.warn(pouch.getName() + " not in inventory");
+                        }
+                    }
+
+                    //try and craft more runes
+                    if (itemPureEss.inInventory() && propNatAltar.interactWith(lp)) {
+                        sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100);
+                        int runeCount = itemNatRune.inInventoy();
+                        Logger.info("crafted " + runeCount + " runes");
 
                         //if we emptied a pouch but couldn't craft more
-                        }else{
-                            Logger.error("failed to craft runes again");
-                        }
-
-                    //if we couldn't empty pouch
-                    }else if(itemSmallPouch.inInventory()){
-                        Logger.error("failed to empty pouch");
-                    }else{
-                        Logger.warn("no pouch in inventory");
+                    } else {
+                        Logger.error("failed to craft runes again");
                     }
 
                 //if we couldn't craft any runes at all
@@ -276,12 +284,12 @@ public class Abyss extends AbstractScript implements ChatListener {
                     }
                 }
 
-                if(!Inventory.isEmpty()){Bank.depositAllItems();}
                 ab.idleShort();
                 break;
 
             case WITHDRAWING_ESS:
                 Inventory.open();
+                InteractableItem.depositAllExcept(itemPouches);
 
                 //try and make sure we have a pouch
                 if(!itemSmallPouch.inInventory()){

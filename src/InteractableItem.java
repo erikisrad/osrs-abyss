@@ -3,12 +3,14 @@ import org.dreambot.api.methods.container.impl.bank.Bank;
 import org.dreambot.api.methods.container.impl.equipment.Equipment;
 import org.dreambot.api.methods.item.GroundItems;
 import org.dreambot.api.methods.map.Area;
-import org.dreambot.api.methods.walking.impl.Walking;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.utilities.Sleep;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class InteractableItem {
 
@@ -137,12 +139,43 @@ public class InteractableItem {
         return Bank.depositAllExcept(this.getIDs());
     }
 
+    public static void depositAllExcept(InteractableItem[] items){
+        //make set of all items we want to exclude from deposit
+        HashSet<Integer> targets = new HashSet<>();
+        for(InteractableItem item : items){
+            for(int id : item.getIDs()) {
+                targets.add(id);
+            }
+        }
+
+        //if item isn't excluded, deposit it
+        HashSet<Integer> invSet = new HashSet<>();
+        for(Item inv : Inventory.all()){
+            if(inv != null && !targets.contains(inv.getID()) && !invSet.contains(inv.getID())){
+                invSet.add(inv.getID());
+                Bank.depositAll(inv.getID());
+            }
+        }
+    }
+
     /**
      * wrapper for Inventory.onlyContains
-     * @return true if inventoy only contains this item
+     * @return true if inventory only contains this item
      */
     public boolean onlyContains(){
         return Inventory.onlyContains(this.getIDs());
+    }
+
+    public static boolean onlyContains(InteractableItem[] items){
+        //make set of all item ids
+        HashSet<Integer> targets = new HashSet<>();
+        for(InteractableItem item : items){
+            for(int id : item.getIDs()) {
+                targets.add(id);
+            }
+        }
+
+        return Inventory.onlyContains(targets.toArray(new Integer[0]));
     }
 
     /**
