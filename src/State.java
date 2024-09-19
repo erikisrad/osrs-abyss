@@ -25,6 +25,7 @@ public enum State{
     USING_EDGEVILLE_BANK,
     GOING_TO_EDGEVILLE,
     CLOSING_BANK,
+    REPAIRING_POUCH,
     NO_ACTION;
 
     private static State currentState;

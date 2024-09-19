@@ -36,6 +36,7 @@ public class Abyss extends AbstractScript implements ChatListener {
     private BufferedWriter logWriter;
 
     final private int retries = 20;
+    private int tripCounter = 0;
 
     //areas
     DefinedArea areaMageTeleBig = new DefinedArea("mageTeleBig", 3102, 3561, 3108, 3539);
@@ -74,7 +75,7 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     InteractableProp propNatAltar = new InteractableProp("Altar", 34768);
     InteractableProp propNatRift = new InteractableProp("Nature rift", 24975);
-    InteractableProp propMage = new InteractableProp("Mage of Zamorak", 3228);
+    InteractableProp propMage = new InteractableProp("Mage of Zamorak", 3228, 6200, true, false);
     InteractableProp propPool = new InteractableProp("Pool of refreshment", 39651);
     InteractableProp propBankChest = new InteractableProp("Bank chest", 26711);
     InteractableProp propBankBooth = new InteractableProp("Bank booth", 10355);
@@ -223,6 +224,7 @@ public class Abyss extends AbstractScript implements ChatListener {
                 }else{
                     Logger.warn("failed to start crafting runes");
                 }
+                tripCounter+=1;
                 break;
 
             case ACTIVATING_DOOR:
@@ -291,57 +293,48 @@ public class Abyss extends AbstractScript implements ChatListener {
                 Inventory.open();
                 InteractableItem.depositAllExcept(itemPouches);
 
-                //try and make sure we have a pouch
-                if(!itemSmallPouch.inInventory()){
-                    Logger.warn("we don't have a pouch");
-                    if(!Inventory.isEmpty()) Bank.depositAllItems();
-                    if(!itemSmallPouch.withdraw()){
-
-                        //if we can't get a pouch, just get ess
-                        Logger.error("couldn't withdraw pouch");
-                        if(itemPureEss.withdraw(28)) {
-                            Logger.debug("withdrew ess");
-                            break;
-
+                //withdraw pouches
+                for(InteractableItem pouch : itemPouches) {
+                    //try and make sure we have a pouch
+                    if (!pouch.inInventory()) {
+                        Logger.warn("we don't have a " + pouch.getName());
+                        if (pouch.withdraw()) {
+                            ab.idleShort();
                         }else{
-                            Logger.error("failed to withdraw ess with no pouch");
-                            return -1;
+                            Logger.error("failed to withdraw " + pouch.getName());
                         }
                     }
-                }
-
-                //if we have pouch, deposit everything else
-                if(!itemSmallPouch.onlyContains()){
-                    itemSmallPouch.depositAllExcept();
-                    ab.idleShort();
                 }
 
                 //get full inventory of ess
-                if(itemPureEss.withdraw(28)){
+                if (itemPureEss.withdraw(28)) {
                     Logger.debug("withdrew ess");
                     ab.idleShort();
-
-                    //fill pouch
-                    if(itemSmallPouch.interact("Fill")) {
-                        Logger.debug("filled pouch");
-                        ab.idleShort();
-
-                        //fill inventory with ess again
-                        if(itemPureEss.withdraw(28)) {
-                            Logger.debug("withdrew ess again");
-
-                        }else{
-                            Logger.warn("failed to get more ess");
-                        }
-
-                    }else{
-                        Logger.warn("failed to fill pouch");
-                    }
-
-                }else{
+                }else {
                     Logger.error("failed to withdraw ess");
                     return -1;
                 }
+
+                //fill pouches
+                for(InteractableItem pouch : itemPouches) {
+                    //fill pouch
+                    if (pouch.interact("Fill")) {
+                        Logger.debug("filled " + pouch.getName());
+                        ab.idleShort();
+                    } else {
+                        Logger.warn("failed to fill " + pouch.getName());
+                    }
+                }
+
+                //get full inventory of ess
+                if (itemPureEss.withdraw(28)) {
+                    Logger.debug("withdrew ess");
+                    sleepUntil(Inventory::isFull, 4000, 100);
+                }else {
+                    Logger.error("failed to withdraw ess");
+                    return -1;
+                }
+
                 break;
 
             case CLOSING_BANK:
@@ -453,6 +446,11 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         //STEP 2 - INNER RING WALK
         boolean atInnerCircle = areaInnerRing.playerIn(lp);
+
+        if(atInnerCircle && (tripCounter%10==0)){
+            State.setState(State.REPAIRING_POUCH);
+            return;
+        }
 
         if(atInnerCircle){
             State.setState(State.GOING_TO_BUTTON);
