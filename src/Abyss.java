@@ -48,6 +48,7 @@ public class Abyss extends AbstractScript implements ChatListener {
     DefinedArea areaNatureButton = new DefinedArea("natureButton", 3030, 4840, 3048, 4846);
     DefinedArea areaNatureRealm = new DefinedArea("natureRealm", 2390, 4851, 2409, 4832);
     DefinedArea areaBankEdgeville = new DefinedArea("bankEdgeville", 3083, 3503, 3104, 3483);
+    DefinedArea areaRepair = new DefinedArea("pouchRepair", 3035, 4835, 3043, 4828);
 
     //items
     InteractableItem itemPureEss = new InteractableItem("Pure essence", 7936);
@@ -57,6 +58,12 @@ public class Abyss extends AbstractScript implements ChatListener {
             new InteractableItem("Small pouch", 5509),
             new InteractableItem("Medium pouch", 5510),
             new InteractableItem("Large pouch", 5512)
+    };
+
+    InteractableItem[] itemDecayed = {
+            new InteractableItem("Medium pouch (decayed)", 5511),
+            new InteractableItem("Large pouch (decayed)", 5513),
+            new InteractableItem("Giant pouch (decayed)", 5515)
     };
 
     //outfit
@@ -79,6 +86,7 @@ public class Abyss extends AbstractScript implements ChatListener {
     InteractableProp propPool = new InteractableProp("Pool of refreshment", 39651);
     InteractableProp propBankChest = new InteractableProp("Bank chest", 26711);
     InteractableProp propBankBooth = new InteractableProp("Bank booth", 10355);
+    InteractableProp propDarkMage = new InteractableProp("Dark Mage", 2583);
 
     public BufferedWriter createLog(){
         Date date = new Date();
@@ -233,6 +241,12 @@ public class Abyss extends AbstractScript implements ChatListener {
                 }
                 break;
 
+            case REPAIRING_POUCH:
+                if(!propDarkMage.moveToTalk(lp, "Repairs", areaRepair, n)){
+                    Logger.warn("failed to walk to repair");
+                }
+                break;
+
             case GOING_TO_BUTTON:
                 ch.yawSouth();
                 if(!n.moveIfTime(areaNatureButton, lp)){
@@ -318,12 +332,24 @@ public class Abyss extends AbstractScript implements ChatListener {
                 //fill pouches
                 for(InteractableItem pouch : itemPouches) {
                     //fill pouch
-                    if (pouch.interact("Fill")) {
+
+                    if (pouch.hasAction("Fill")){
+                        Logger.info("can fill " + pouch.getName());
+                    }else{
+                        Logger.warn("can't fill " + pouch.getName());
+                        continue;
+                    }
+
+                    if(pouch.interact("Fill")) {
                         Logger.debug("filled " + pouch.getName());
                         ab.idleShort();
                     } else {
                         Logger.warn("failed to fill " + pouch.getName());
                     }
+                }
+
+                if(Inventory.isFull() && itemPureEss.inInventory()){
+                    break;
                 }
 
                 //get full inventory of ess
@@ -334,7 +360,6 @@ public class Abyss extends AbstractScript implements ChatListener {
                     Logger.error("failed to withdraw ess");
                     return -1;
                 }
-
                 break;
 
             case CLOSING_BANK:
@@ -436,6 +461,14 @@ public class Abyss extends AbstractScript implements ChatListener {
             return;
         }
 
+        boolean atInnerCircle = areaInnerRing.playerIn(lp);
+        boolean hasDecayed = InteractableItem.anyInInventory(itemDecayed);
+
+        if(atInnerCircle && hasDecayed){
+            State.setState(State.REPAIRING_POUCH);
+            return;
+        }
+
         //STEP 1 - INNER RING BUTTON
         boolean atButton = areaNatureButton.playerIn(lp);
 
@@ -445,13 +478,6 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
 
         //STEP 2 - INNER RING WALK
-        boolean atInnerCircle = areaInnerRing.playerIn(lp);
-
-        if(atInnerCircle && (tripCounter%10==0)){
-            State.setState(State.REPAIRING_POUCH);
-            return;
-        }
-
         if(atInnerCircle){
             State.setState(State.GOING_TO_BUTTON);
             return;
@@ -474,7 +500,7 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
 
         boolean bankOpen = Bank.isOpen();
-        boolean wearingOutfit = InteractableItem.inEquipment(itemOutfit);
+        boolean wearingOutfit = InteractableItem.allInEquipment(itemOutfit);
 
         //STEP 5 - CHECKING OUTFIT
         if(bankOpen && !wearingOutfit){

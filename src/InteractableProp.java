@@ -250,6 +250,71 @@ public class InteractableProp {
     }
 
     /**
+     * try to interact and move closer if unsuccessful
+     * @param player local player
+     * @param action right click option
+     * @param area where the npc is
+     * @param n our navigator handle
+     * @return true if successful
+     */
+    public boolean moveToInteract(Player player, String action, DefinedArea area, Navigator n){
+        // check if we already interacted with a similar object recently, quit if so
+        if(!shouldAct(player)) return true;
+
+        //grab nearest object with our id
+        this.gObj = GameObjects.closest(r ->
+                r.getID() == this.ID
+                && r.hasAction(action)
+                && area.contains(r.getTile())
+                && r.canReach());
+
+        //if we didn't find object
+        if(this.gObj == null){
+            Logger.info("no valid " + this.name + " to do " + action);
+            return n.moveIfTime(area, player);
+
+        // if we found a nearby object, let's try interacting with it and return our success
+        }else{
+            boolean success = this.gObj.interact(action);
+            if(success){
+                Logger.info("successfully did " + action + " on " + this.name);
+                setLastInteract();
+            }else{
+                Logger.error("failed to do " + action + " on " + this.name);
+            }
+            return success;
+        }
+    }
+
+    public boolean moveToTalk(Player player, String action, DefinedArea area, Navigator n){
+        // check if we already interacted with a similar object recently, quit if so
+        if(!shouldAct(player)) return true;
+
+        //grab nearest object with our id
+        this.npc = NPCs.closest(r ->
+                r.getName().equals(this.getName())
+                && r.hasAction(action)
+                && area.contains(r.getTile()));
+
+        //if we didn't find object
+        if(this.npc == null){
+            Logger.info("no valid " + this.name + " to do " + action);
+            return n.moveIfTime(area, player);
+
+            // if we found a nearby object, let's try interacting with it and return our success
+        }else{
+            boolean success = this.npc.interact(action);
+            if(success){
+                Logger.info("successfully did " + action + " on " + this.name);
+                setLastInteract();
+            }else{
+                Logger.error("failed to do " + action + " on " + this.name);
+            }
+            return success;
+        }
+    }
+
+    /**
      * interacts with the nearest prop in array - will just move closer to the prop instead if too far
      * @param props props we want to look for
      * @param player local player
@@ -262,7 +327,7 @@ public class InteractableProp {
 
         //search for every prop in our array
         for(InteractableProp prop : props){
-            Logger.info("looking for " + prop.getName() + " (" + prop.getID() + ") ");
+            Logger.debug("looking for " + prop.getName() + " (" + prop.getID() + ") ");
 
             found = GameObjects.closest(r ->
                 r.getName().equals(prop.getName())
@@ -275,7 +340,7 @@ public class InteractableProp {
 
             //if we found a match
             }else{
-                Logger.info("found " + found.getName() + " (" + found.getID() + ") " +
+                Logger.debug("found " + found.getName() + " (" + found.getID() + ") " +
                         (int) found.distance() + " units away");
             }
 
@@ -293,7 +358,7 @@ public class InteractableProp {
 
         String closestName = closestProp.getName();
         int distance = (int) closestProp.distance();
-        Logger.info("closest prop was " + closestName + ", " + distance + " units away");
+        Logger.debug("closest prop was " + closestName + ", " + distance + " units away");
 
         // if prop is far, move closer instead of interacting
         if(distance > 18){

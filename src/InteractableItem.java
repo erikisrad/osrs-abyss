@@ -10,7 +10,6 @@ import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
 
 import java.util.HashSet;
-import java.util.Set;
 
 public class InteractableItem {
 
@@ -85,12 +84,36 @@ public class InteractableItem {
         return Inventory.contains(this.getIDs());
     }
 
+    public static boolean allInInventory(InteractableItem[] items){
+        for(InteractableItem item : items){
+            Logger.debug("checking for " + item.getName());
+            if(!item.inInventory()) return false;
+        }
+        return true;
+    }
+
+    public static boolean anyInInventory(InteractableItem[] items){
+        for(InteractableItem item : items){
+            Logger.debug("checking for " + item.getName());
+            if(item.inInventory()) return true;
+        }
+        return false;
+    }
+
+    public static boolean inInventory(InteractableItem[] items){
+        for(InteractableItem item : items){
+            Logger.debug("checking for " + item.getName());
+            if(!item.inInventory()) return false;
+        }
+        return true;
+    }
+
     /**
      * checks if our player is wearing all the specified items
      * @param items array of items we want to check
      * @return boolean representing if we are wearing all the items
      */
-    public static boolean inEquipment(InteractableItem[] items){
+    public static boolean allInEquipment(InteractableItem[] items){
         for(InteractableItem item : items){
             Logger.debug("checking for " + item.getName());
             if(!item.inEquipment()) return false;
@@ -196,6 +219,13 @@ public class InteractableItem {
      */
     public boolean withdraw(){
         return withdraw(1);
+    }
+
+    public boolean hasAction(String action){
+        Item i = Inventory.get(n ->
+                    n.getName().equals(this.getName())
+                    && n.hasAction(action));
+        return(i!=null);
     }
 
     /**
