@@ -4,6 +4,8 @@ import org.dreambot.api.methods.container.impl.equipment.Equipment;
 import org.dreambot.api.methods.container.impl.equipment.EquipmentSlot;
 import org.dreambot.api.methods.dialogues.Dialogues;
 import org.dreambot.api.methods.interactive.Players;
+import org.dreambot.api.methods.skills.Skill;
+import org.dreambot.api.methods.skills.SkillTracker;
 import org.dreambot.api.methods.walking.impl.Walking;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
@@ -14,13 +16,8 @@ import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.wrappers.widgets.message.Message;
 
+import java.time.Duration;
 import java.awt.*;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 @ScriptManifest(name = "Abyss", description = "x", author = "erik",
         version = 1.0, category = Category.RUNECRAFTING, image = "")
@@ -32,20 +29,32 @@ public class Abyss extends AbstractScript implements ChatListener {
     private Navigator n;
     private Navigator navAbyss;
     private Player lp;
-    private String logName;
-    private BufferedWriter logWriter;
+    private FileLogger fl;
 
     final private int retries = 20;
+
+    //stats
     private int tripCounter = 0;
+    private int runesMadeSession = 0;
+    private int essUsedSession = 0;
+    private int runesMadeEarlier = 0;
+    private int essUsedEarlier = 0;
+    private long startTime;
+    private long lastCraft;
+    private long secondLastCraft; // second to last craft
+    private int price;
+
+    final private int XP_PER = 9;
+    final private int XP_FOR_99 = 13034431;
 
     //areas
-    DefinedArea areaMageTeleBig = new DefinedArea("mageTeleBig", 3102, 3561, 3108, 3539);
     DefinedArea areaMageTeleSmall = new DefinedArea("mageTeleSmall", 3102, 3561, 3110, 3556);
     DefinedArea areaEnclave = new DefinedArea("enclave", 3155, 3646, 3123, 3617);
-    DefinedArea areaChapel = new DefinedArea("chapel", 3125, 3636, 3135, 3628);
+    DefinedArea areaChapel = new DefinedArea("chapel", 3130, 3633, 3125, 3636);
+    DefinedArea areaEnclaveBank = new DefinedArea("enclaveBank", 3127, 3632, 3133, 3629);
     DefinedArea areaOuterRing = new DefinedArea("outerRing", 3011, 4860, 3069, 4804);
     DefinedArea areaInnerRing = new DefinedArea("innerRing", 3024, 4846, 3054, 4817);
-    DefinedArea areaNatureButton = new DefinedArea("natureButton", 3030, 4840, 3048, 4846);
+    DefinedArea areaNatureButton = new DefinedArea("natureButton", 3032, 4842, 3037, 4844);
     DefinedArea areaNatureRealm = new DefinedArea("natureRealm", 2390, 4851, 2409, 4832);
     DefinedArea areaBankEdgeville = new DefinedArea("bankEdgeville", 3083, 3503, 3104, 3483);
     DefinedArea areaRepair = new DefinedArea("pouchRepair", 3035, 4835, 3043, 4828);
@@ -61,12 +70,11 @@ public class Abyss extends AbstractScript implements ChatListener {
     };
 
     InteractableItem[] itemDecayed = {
-            new InteractableItem("Medium pouch (decayed)", 5511),
-            new InteractableItem("Large pouch (decayed)", 5513),
-            new InteractableItem("Giant pouch (decayed)", 5515)
+            new InteractableItem("Medium pouch", 5511),
+            new InteractableItem("Large pouch", 5513),
+            new InteractableItem("Giant pouch", 5515)
     };
 
-    //outfit
     InteractableItem[] itemOutfit = {
             new InteractableItem("Bronze pickaxe", 1265),
             new InteractableItem("Amulet of glory", 11978, 11976, 1712, 1710, 1708, 1706),
@@ -81,37 +89,16 @@ public class Abyss extends AbstractScript implements ChatListener {
     };
 
     InteractableProp propNatAltar = new InteractableProp("Altar", 34768);
-    InteractableProp propNatRift = new InteractableProp("Nature rift", 24975);
-    InteractableProp propMage = new InteractableProp("Mage of Zamorak", 3228, 6200, true, false);
+    InteractableProp propNatButton = new InteractableProp("Nature rift", 24975, 6200,
+            true, false);
     InteractableProp propPool = new InteractableProp("Pool of refreshment", 39651);
     InteractableProp propBankChest = new InteractableProp("Bank chest", 26711);
     InteractableProp propBankBooth = new InteractableProp("Bank booth", 10355);
-    InteractableProp propDarkMage = new InteractableProp("Dark Mage", 2583);
 
-    public BufferedWriter createLog(){
-        Date date = new Date();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd");
-        logName = dateFormat.format(date) + "abyss_output.txt";
-        File file = new File(logName);
-        BufferedWriter out = null;
-        try{
-            out = new BufferedWriter(new FileWriter(file, true));
-        }catch(IOException e){
-            Logger.error("failed to create log: " + e);
-            ScriptManager.getScriptManager().stop();
-        }
-        return out;
-    }
-
-    public void writeLog(String msg){
-        try {
-            logWriter.write(msg);
-            logWriter.close();
-        } catch (IOException e) {
-            Logger.error("failed to write log message: " + msg);
-            Logger.error(e);
-        }
-    }
+    //npcs
+    InteractableNPC npcMage = new InteractableNPC("Mage of Zamorak", 3228, 6200,
+            true, false);
+    InteractableNPC npcDarkMage = new InteractableNPC("Dark Mage", 2583);
 
     @Override
     public void onStart() {
@@ -119,9 +106,10 @@ public class Abyss extends AbstractScript implements ChatListener {
         ch = new CameraHandler(220, 340, 300, 383);
         n = new Navigator();
         navAbyss = new Navigator(0, 1200, 2200);
-        //logWriter = createLog();
+        fl = new FileLogger();
         Logger.log("booting script...");
 
+        //grabbing local player object
         int tries = 0;
         while(lp == null){
             if(tries>retries){
@@ -138,15 +126,30 @@ public class Abyss extends AbstractScript implements ChatListener {
             }
         }
         Logger.info("grabbed local player in " + tries + " attempt(s)");
+
+        //initialize stat tracking utilities
+        SkillTracker.start(Skill.RUNECRAFTING);
+        this.secondLastCraft = this.lastCraft = this.startTime = System.currentTimeMillis();
+        this.runesMadeEarlier = fl.readInStat("crafted");
+        this.essUsedEarlier = fl.readInStat("essence");
+        this.price = itemNatRune.getPrice();
+
+        fl.writeLog("session start");
     }
 
-    final String rockFail = "...but fail to break-up the rock.";
-    final String rockSucceed = "..and manage to break through the rock.";
-    final String gapFail = "...but you are not agile enough to get through the gap.";
-    final String gapSucceed = "...and you manage to crawl through.";
+    @Override
+    public void onExit(){
+        fl.writeLog("session end");
+        Logger.info("script ended gracefully");
+    }
 
     @Override
     public void onMessage(Message message) {
+        final String rockFail = "...but fail to break-up the rock.";
+        final String rockSucceed = "..and manage to break through the rock.";
+        final String gapFail = "...but you are not agile enough to get through the gap.";
+        final String gapSucceed = "...and you manage to crawl through.";
+
         if(message.getMessage().contains(rockFail) ||
                 message.getMessage().contains(gapFail)){
 
@@ -166,9 +169,57 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     @Override
     public void onPaint(Graphics g){
+
+        //get stat info
+        int vertical = 20;
+        int gap = 12;
+        long currentTime = System.currentTimeMillis();
+        long runTime = (currentTime - this.startTime);
+        long lastLap = (this.lastCraft - this.secondLastCraft);
+        long averageLap;
+        int avgEss;
+        int totalRunes = this.runesMadeEarlier + this.runesMadeSession;
+        int totalEss = this.essUsedEarlier + this.essUsedSession;
+        int profit = this.price * totalRunes;
+        int experience = XP_PER * totalEss;
+        int lapsUntil99;
+        long timeUntil99;
+        int currentXP = Skill.RUNECRAFTING.getExperience();
+
+        try {
+            averageLap = (this.lastCraft - this.startTime) / this.tripCounter;
+            avgEss = this.essUsedSession / this.tripCounter;
+            lapsUntil99 = (XP_FOR_99 - currentXP) / (avgEss*XP_PER);
+            timeUntil99 = lapsUntil99 * averageLap;
+        } catch(ArithmeticException err){
+            averageLap = 0;
+            lapsUntil99 = 0;
+            timeUntil99 = 0;
+        }
+
+        //print stat info on screen
         g.setColor(Color.GREEN);
         g.setFont(new Font("Arial", Font.PLAIN, 12));
-        g.drawString("State: " + State.getState(), 10, 32);
+
+        g.drawString("State: " + State.getState(), 10, vertical+=gap);
+        vertical+=gap;
+
+        g.drawString("Runtime: " + getReadableRuntime(runTime), 10, vertical+=gap);
+        g.drawString("Runes made: " + this.runesMadeSession, 10, vertical+=gap);
+        g.drawString("Lap count: " + this.tripCounter, 10, vertical+=gap);
+        //g.drawString("Last lap: " + getReadableRuntime(lastLap), 10, vertical+=gap);
+        g.drawString("Avg lap: " + getReadableRuntime(averageLap), 10, vertical+=gap);
+        vertical+=gap;
+
+        //g.drawString("Ess Used today: " + totalEss, 10, vertical+=gap);
+        g.drawString("Runes today: " + totalRunes, 10, vertical+=gap);
+        g.drawString("Profit today: " + String.format("%,d", profit) + "gp", 10, vertical+=gap);
+        g.drawString("XP/hour: " + SkillTracker.getGainedExperiencePerHour(Skill.RUNECRAFTING), 10, vertical+=gap);
+        //g.drawString("XP today: " + String.format("%,d", experience) + "xp", 10, vertical+=gap);
+        //vertical+=gap;
+
+        //g.drawString("Laps til 99: " + lapsUntil99, 10, vertical+=gap);
+        g.drawString("Time til 99: " + getReadableRuntime(timeUntil99), 10, vertical+=gap);
     }
 
     @Override
@@ -196,110 +247,123 @@ public class Abyss extends AbstractScript implements ChatListener {
 
             //LOGIC
             case USING_NATURE_ALTAR:
+                int tempEss = 0;
+                int essCount = 0;
+                int runeCount = 0;
 
-                //try and craft runes
-                if(propNatAltar.interactWith(lp)) {
-                    Logger.info("crafting runes");
-                    sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100);
+                for (InteractableItem pouch : itemPouches) {
+                    Logger.info("processing " + pouch.getName());
+                    boolean processing = true;
+                    while(processing) {
 
-                    //try and empty pouch
-                    for(InteractableItem pouch : itemPouches) {
-                        if (pouch.interact("Empty")) {
+                        //if full of ess, craft runes
+                        if (Inventory.isFull() && itemPureEss.inInventory()) {
+                            tempEss = itemPureEss.inInventoy();
+                            if (propNatAltar.interactWith(lp)) {
+                                Logger.info("crafting runes");
+                                if (sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100)) {
+                                    essCount += tempEss;
+                                }
+                            } else {
+                                Logger.error("failed to craft runes");
+                                continue;
+                            }
+                        }
+
+                        //if we have room in inventory, empty the pouch
+                        if (!Inventory.isFull() && pouch.interact("Empty")) {
                             Logger.info("emptied " + pouch.getName());
                             ab.idleShort();
                             InteractableProp.resetLastInteract();
+                            if(!Inventory.isFull()) processing = false;
 
                             //if we couldn't empty pouch
                         } else if (pouch.inInventory()) {
                             Logger.error("failed to empty " + pouch.getName());
+
+                            //if we don't have that pouch
                         } else {
                             Logger.warn(pouch.getName() + " not in inventory");
                         }
                     }
+                }
 
-                    //try and craft more runes
-                    if (itemPureEss.inInventory() && propNatAltar.interactWith(lp)) {
-                        sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100);
-                        int runeCount = itemNatRune.inInventoy();
-                        Logger.info("crafted " + runeCount + " runes");
-
-                        //if we emptied a pouch but couldn't craft more
+                //after emptying every pouch - do one last craft if needed.
+                if (itemPureEss.inInventory()) {
+                    tempEss = itemPureEss.inInventoy();
+                    if (propNatAltar.interactWith(lp)) {
+                        Logger.info("crafting last runes");
+                        if (sleepUntil(() -> !itemPureEss.inInventory(), 4000, 100)) {
+                            essCount += tempEss;
+                        }
                     } else {
-                        Logger.error("failed to craft runes again");
+                        Logger.error("failed to craft last runes");
                     }
-
-                //if we couldn't craft any runes at all
-                }else{
-                    Logger.warn("failed to start crafting runes");
                 }
-                tripCounter+=1;
-                break;
 
-            case ACTIVATING_DOOR:
-                if(!propNatRift.interactWith(lp)) {
-                    Logger.warn("failed to exit through nature rift");
-                }
+                runeCount = itemNatRune.inInventoy();
+                lapComplete(runeCount, essCount);
                 break;
 
             case REPAIRING_POUCH:
-                if(!propDarkMage.moveToTalk(lp, "Repairs", areaRepair, n)){
+                if (!npcDarkMage.moveToInteract("Repairs", areaRepair, lp, n)) {
                     Logger.warn("failed to walk to repair");
                 }
                 break;
 
-            case GOING_TO_BUTTON:
+            case ACTIVATING_BUTTON:
                 ch.yawSouth();
-                if(!n.moveIfTime(areaNatureButton, lp)){
-                    Logger.warn("failed to walk to button");
+                if (propNatButton.moveToInteract(lp, areaNatureButton, n)) {
+                    Logger.debug("using button");
+                } else {
+                    Logger.error("failed to use button");
                 }
                 break;
 
             case NAVIGATING_ABYSS:
-                InteractableProp.interactOrMove(abyssProps, lp, navAbyss);
+                InteractableProp.searchAndMove(abyssProps, lp, navAbyss);
                 break;
 
             case TELEPORTING_TO_ABYSS:
-                if(!propMage.talkWith("Teleport", areaMageTeleSmall, lp)){
-                    Logger.info("couldn't find mage - moving closer");
-                    n.moveIfTime(areaMageTeleSmall, lp);
-                }else{
-                    Logger.debug("teleporing");
-                }
-                break;
-
-            case GOING_TO_MAGE:
                 ch.yawNorth();
-                if(!n.moveIfTime(areaMageTeleSmall, lp)){
-                    Logger.warn("failed to run to large mage area");
+                if (npcMage.moveToInteract("Teleport", areaMageTeleSmall, lp, n)) {
+                    Logger.debug("teleporting");
+                } else {
+                    Logger.error("failed to teleport to abyss");
                 }
                 break;
 
             case EQUIPPING_OUTFIT:
                 Inventory.open();
-                if(14>Inventory.emptySlotCount()){
+                if (14 > Inventory.emptySlotCount()) {
                     Bank.depositAllItems();
                     ab.idleShort();
                 }
 
-                for(InteractableItem item : itemOutfit){
-                    if(!item.inEquipment()){
-                        if(!Bank.withdraw(i -> i.getName().contains(item.getName()))){
-                            Logger.error("failed to withdraw " + item.getName());
-                            return -1; //exit script
+                for (InteractableItem item : itemOutfit) {
+                    if (!item.inEquipment()) {
+
+                        if(!item.inInventory()) {
+
+                            if (!item.withdraw()) {
+                                Logger.error("failed to withdraw " + item.getName());
+                                return -1; //exit script
+                            }
+                            ab.idleShort();
                         }
-                        ab.idleShort();
-                        if(!item.equipItem()){
+
+                        if (!item.equipItem()) {
                             Logger.error("failed to equip " + item.getName());
                             return -1; //exit script
-                        }else{
+                        } else {
                             Logger.info(item.getName() + " equipped");
                             ab.idleShort();
                         }
-                    }else{
+
+                    } else {
                         Logger.debug(item.getName() + " already worn");
                     }
                 }
-
                 ab.idleShort();
                 break;
 
@@ -308,57 +372,58 @@ public class Abyss extends AbstractScript implements ChatListener {
                 InteractableItem.depositAllExcept(itemPouches);
 
                 //withdraw pouches
-                for(InteractableItem pouch : itemPouches) {
-                    //try and make sure we have a pouch
-                    if (!pouch.inInventory()) {
-                        Logger.warn("we don't have a " + pouch.getName());
-                        if (pouch.withdraw()) {
+                for (InteractableItem pouch : itemPouches) {
+                    boolean processing = true;
+                    while(processing) {
+
+                        //try and make sure we have a pouch
+                        if (!pouch.inInventory()) {
+                            Logger.warn("we don't have a " + pouch.getName());
+                            if (pouch.withdraw()) {
+                                ab.idleShort();
+                            } else {
+                                Logger.error("failed to withdraw " + pouch.getName());
+                            }
+                        }
+
+                        //get more ess if empty
+                        if (!itemPureEss.inInventory()) {
+                            if (itemPureEss.withdraw(28)) {
+                                Logger.info("withdrew ess");
+                                ab.idleShort();
+                            } else {
+                                Logger.error("failed to withdraw ess");
+                                return -1;
+                            }
+                        }
+
+                        //fill pouch
+                        if (pouch.interact("Fill")) {
+                            Logger.info("filled " + pouch.getName());
                             ab.idleShort();
-                        }else{
-                            Logger.error("failed to withdraw " + pouch.getName());
+                            //if we had ess left over, pouch must be full
+                            if(itemPureEss.inInventory()){
+                                processing = false;
+                            }else{
+                                Logger.info("pouch might not be full");
+                            }
+
+                        } else {
+                            Logger.warn("failed to fill " + pouch.getName());
+                            processing = false;
                         }
                     }
                 }
 
-                //get full inventory of ess
-                if (itemPureEss.withdraw(28)) {
-                    Logger.debug("withdrew ess");
-                    ab.idleShort();
-                }else {
-                    Logger.error("failed to withdraw ess");
-                    return -1;
-                }
-
-                //fill pouches
-                for(InteractableItem pouch : itemPouches) {
-                    //fill pouch
-
-                    if (pouch.hasAction("Fill")){
-                        Logger.info("can fill " + pouch.getName());
-                    }else{
-                        Logger.warn("can't fill " + pouch.getName());
-                        continue;
-                    }
-
-                    if(pouch.interact("Fill")) {
-                        Logger.debug("filled " + pouch.getName());
+                //get full inventory of ess before we leave
+                if(!Inventory.isFull()) {
+                    if (itemPureEss.withdraw(28)) {
+                        Logger.info("finally withdrew ess");
                         ab.idleShort();
                     } else {
-                        Logger.warn("failed to fill " + pouch.getName());
+                        Logger.error("failed to finally withdraw ess");
+                        return -1;
                     }
-                }
-
-                if(Inventory.isFull() && itemPureEss.inInventory()){
-                    break;
-                }
-
-                //get full inventory of ess
-                if (itemPureEss.withdraw(28)) {
-                    Logger.debug("withdrew ess");
-                    sleepUntil(Inventory::isFull, 4000, 100);
-                }else {
-                    Logger.error("failed to withdraw ess");
-                    return -1;
                 }
                 break;
 
@@ -368,31 +433,27 @@ public class Abyss extends AbstractScript implements ChatListener {
 
             case IN_ANIMATION:
                 Logger.info("waiting for animation");
-                if(!sleepUntil(()-> !lp.isAnimating(), ab.getLongDelay(), 100)){
+                if (!sleepUntil(() -> !lp.isAnimating(), ab.getLongDelay(), 100)) {
                     Logger.warn("animation wait timed out");
                 }
                 n.resetLastMove();
                 break;
 
             case USING_SHRINE:
-                if(!propPool.interactWith("Drink", areaChapel, lp)){
-                    Logger.warn("failed to use pool");
-                }
-                ch.yawEast();
-                break;
-
-            case GOING_TO_CHAPEL:
-                Inventory.open();
                 ch.yawWest();
-                if(!n.moveIfTime(areaChapel, lp)){
-                    Logger.warn("failed to run to chapel");
+                if (propPool.moveToInteract(lp, "Drink", areaChapel, n)){
+                    Logger.debug("drinking from pool");
+                }else{
+                    Logger.warn("failed to use pool");
                 }
                 break;
 
             case USING_ENCLAVE_BANK:
                 Inventory.open();
-                if(!propBankChest.interactWith("Use", areaChapel, lp)){
-                    Logger.warn("failed to use chapel bank");
+                if(propBankChest.moveToInteract(lp, "Use", areaEnclaveBank, n)) {
+                    Logger.info("banking at enclave");
+                }else{
+                    Logger.warn("failed to use enclave bank");
                 }
                 break;
 
@@ -412,6 +473,7 @@ public class Abyss extends AbstractScript implements ChatListener {
 
             case USING_EDGEVILLE_BANK:
                 Inventory.open();
+                ch.yawEast();
                 if(!propBankBooth.interactWith("Bank", areaBankEdgeville, lp)){
                     Logger.warn("failed to use edgeville bank");
                 }
@@ -469,17 +531,8 @@ public class Abyss extends AbstractScript implements ChatListener {
             return;
         }
 
-        //STEP 1 - INNER RING BUTTON
-        boolean atButton = areaNatureButton.playerIn(lp);
-
-        if(atButton){
-            State.setState(State.ACTIVATING_DOOR);
-            return;
-        }
-
-        //STEP 2 - INNER RING WALK
         if(atInnerCircle){
-            State.setState(State.GOING_TO_BUTTON);
+            State.setState(State.ACTIVATING_BUTTON);
             return;
         }
 
@@ -488,14 +541,6 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         if(atOuterRing){
             State.setState(State.NAVIGATING_ABYSS);
-            return;
-        }
-
-        //STEP 4 - TELEPORTING TO ABYSS
-        boolean atMage = areaMageTeleBig.playerIn(lp);
-
-        if(atMage && essCount>0){
-            State.setState(State.TELEPORTING_TO_ABYSS);
             return;
         }
 
@@ -529,26 +574,19 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         int health = lp.getHealthPercent();
         int stamina = Walking.getRunEnergy();
-        boolean atChapel = areaChapel.playerIn(lp);
+        boolean needChapel = (100>health || 95>stamina);
+        boolean atEnclave = areaEnclave.playerIn(lp);
 
-        //STEP 8 - USING SHRINE
-        if((100>health || 95>stamina) && atChapel) {
+        //STEP 9 - GOING TO CHAPEL
+        if((atAltar || atEnclave) && needChapel) {
             State.setState(State.USING_SHRINE);
             return;
         }
 
         boolean wearingGlory = itemOutfit[1].inEquipment();
-        boolean atEnclave = areaEnclave.playerIn(lp);
-        boolean needChapel = (!wearingGlory || 100>health || 95>stamina);
-
-        //STEP 9 - GOING TO CHAPEL
-        if((atAltar && needChapel) || (atEnclave && !atChapel)) {
-            State.setState(State.GOING_TO_CHAPEL);
-            return;
-        }
 
         //STEP 10 - USING ENCLAVE BANK
-        if(atChapel && (!wearingGlory)) {
+        if(atEnclave && (!wearingGlory)) {
             State.setState(State.USING_ENCLAVE_BANK);
             return;
         }
@@ -561,7 +599,7 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         //STEP 12 - GOING TO MAGE
         if(essCount>=20 && wearingOutfit){
-            State.setState(State.GOING_TO_MAGE);
+            State.setState(State.TELEPORTING_TO_ABYSS);
             return;
         }
 
@@ -580,5 +618,27 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         //Logger.debug("no state to set");
         //State.setState(State.NO_ACTION);
+    }
+
+    private void lapComplete(int runeCount, int essCount){
+        Logger.info("crafted " + runeCount + " runes using " + essCount + " essence");
+        fl.writeLog("essence used " + essCount);
+        fl.writeLog("crafted " + runeCount);
+        this.secondLastCraft = this.lastCraft;
+        this.lastCraft = System.currentTimeMillis();
+        long lastLap = (this.lastCraft - this.secondLastCraft);
+        Logger.info("lap time " + getReadableRuntime(lastLap));
+        this.runesMadeSession += runeCount;
+        this.essUsedSession += essCount;
+        this.tripCounter += 1;
+    }
+
+    private String getReadableRuntime(long ms){
+        Duration duration = Duration.ofMillis(ms);
+        return duration.toString()
+                .substring(2)
+                .replaceAll("(\\d[HMS])(?!$)", "$1 ")
+                .replaceAll("\\.\\d+", "")
+                .toLowerCase();
     }
 }

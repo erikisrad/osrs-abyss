@@ -1,6 +1,7 @@
 import org.dreambot.api.methods.container.impl.Inventory;
 import org.dreambot.api.methods.container.impl.bank.Bank;
 import org.dreambot.api.methods.container.impl.equipment.Equipment;
+import org.dreambot.api.methods.grandexchange.LivePrices;
 import org.dreambot.api.methods.item.GroundItems;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.utilities.Logger;
@@ -12,6 +13,8 @@ import org.dreambot.api.wrappers.items.Item;
 import java.util.HashSet;
 
 public class InteractableItem {
+
+    private final static int RETRIES = 2;
 
     private final String name;
     private final int[] IDs;
@@ -135,22 +138,39 @@ public class InteractableItem {
      * @return if we successfully equipped it
      */
     public boolean equipItem(){
-        Item wearable = Inventory.get(r ->
-                r.getName().contains(this.getName())
-                        && r.hasAction("Wear"));
+        for(int id : this.IDs){
+            Item wearable = Inventory.get(r ->
+                    r.getID() == id
+                    && r.hasAction("Wear"));
 
-        if(wearable != null){
-            return Inventory.interact(wearable, "Wear");
+            if (wearable != null) {
+                Logger.info("wearing " + wearable.getName());
+                return Inventory.interact(wearable, "Wear");
+            }
+            Logger.warn(this.name + " (" + id + ") not wearable");
+
+            Item wieldable = Inventory.get(r ->
+                    r.getID() == id
+                    && r.hasAction("Wield"));
+
+            if (wieldable != null) {
+                Logger.info("wielding " + wieldable.getName());
+                return Inventory.interact(wieldable, "Wield");
+            }
+            Logger.warn(this.name + " (" + id + ") not wieldable");
         }
 
-        Item wieldable = Inventory.get(r ->
-                r.getName().contains(this.getName())
-                        && r.hasAction("Wield"));
-
-        if(wieldable != null){
-            return Inventory.interact(wieldable, "Wield");
+        //final attempt
+        Logger.warn("trying to force wear/wield for " + this.name);
+        Item item = Inventory.get(r -> r.getName().contains(this.name));
+        if(item != null){
+            Logger.info("found matching item to force wield " + this.name);
+            return(Inventory.interact(item, "Wear") || Inventory.interact(item, "Wield"));
+        }else{
+            Logger.warn("failed to force wear/wield for " + this.name);
         }
 
+        Logger.error(this.name + " not wearable or wieldable");
         return false;
     }
 
@@ -223,7 +243,7 @@ public class InteractableItem {
 
     public boolean hasAction(String action){
         Item i = Inventory.get(n ->
-                    n.getName().equals(this.getName())
+                    n.getName().equals(this.name)
                     && n.hasAction(action));
         return(i!=null);
     }
@@ -239,4 +259,26 @@ public class InteractableItem {
         }
         return false;
     }
+
+    /**
+     * price checks this item
+     * @return item's value
+     */
+    public int getPrice(){
+        int price;
+        for(int id : this.IDs){
+            try{
+                price = LivePrices.get(id);
+                return price;
+            }catch(Exception ignored){}
+        }
+        Logger.error("failed to price check " + this.name);
+        return 0;
+    }
+
+    public Item getRandomItem(){
+
+    }
+
+
 }

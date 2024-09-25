@@ -1,10 +1,8 @@
 import javafx.util.Pair;
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.interactive.GameObjects;
-import org.dreambot.api.methods.interactive.NPCs;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.GameObject;
-import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.methods.map.Area;
 
@@ -15,6 +13,7 @@ public class InteractableProp {
     final static int DEFAULT_WAIT = 4200;
     final static boolean DEFAULT_MOVING = true;
     final static boolean DEFAULT_ANIMATING = true;
+    final static int MAX_DISTANCE = 10;
 
     static int waitRoll = DEFAULT_WAIT;
 
@@ -34,7 +33,6 @@ public class InteractableProp {
     final private boolean moving;
     final private boolean animating;
     GameObject gObj;
-    NPC npc;
 
     /**
      * specifies a world prop and how the player should interact with it
@@ -54,7 +52,6 @@ public class InteractableProp {
         this.moving = moving;
         this.animating = animating;
         this.gObj = null;
-        this.npc = null;
         generateWait();
     }
 
@@ -116,6 +113,9 @@ public class InteractableProp {
         return !shouldNot;
     }
 
+    /**
+     * resets last interact to a generic value so we can immediately interact with a new prop
+     */
     public static void resetLastInteract(){
         lastInteract = new Pair<>("name", 0L);
     }
@@ -144,36 +144,6 @@ public class InteractableProp {
      */
     private void setLastInteract(){
         setLastInteract(this.name);
-    }
-
-    public boolean talkWith(String action, DefinedArea da, Player player){
-        // check if we already interacted with a similar object recently, quit if so
-        if(!shouldAct(player)) return true;
-
-        //grab nearest object with our id, in our area, with our action
-        this.npc = NPCs.closest(n ->
-            n.getName().equals(this.getName())
-            && da.contains(n.getTile())
-            && n.canReach()
-            && n.hasAction(action));
-
-        // if we found a nearby object, let's try interacting with it and return our success
-        if(this.npc != null){
-            Logger.info("found " + this.name + " to " + action);
-            boolean success = this.npc.interact(action);
-            if(success){
-                Logger.info("successfully did " + action + " on " + this.name);
-                setLastInteract();
-            }else{
-                Logger.error("failed " + action + " on " + this.name);
-            }
-            return success;
-
-            //if we didn't find object, quit out
-        }else{
-            Logger.warn("no valid " + this.name + " to " + action);
-            return false;
-        }
     }
 
     /**
@@ -253,13 +223,19 @@ public class InteractableProp {
      * try to interact and move closer if unsuccessful
      * @param player local player
      * @param action right click option
-     * @param area where the npc is
+     * @param area where the prop is
      * @param n our navigator handle
      * @return true if successful
      */
     public boolean moveToInteract(Player player, String action, DefinedArea area, Navigator n){
         // check if we already interacted with a similar object recently, quit if so
         if(!shouldAct(player)) return true;
+
+        //check if area is too far for a realistic interact
+        if(area.getNearestTile(player).distance() > MAX_DISTANCE){
+            Logger.info(this.getName() + " too far, just moving instead");
+            return n.moveIfTime(area, player);
+        }
 
         //grab nearest object with our id
         this.gObj = GameObjects.closest(r ->
@@ -281,34 +257,49 @@ public class InteractableProp {
                 setLastInteract();
             }else{
                 Logger.error("failed to do " + action + " on " + this.name);
+                n.moveIfTime(area, player);
             }
             return success;
         }
     }
 
-    public boolean moveToTalk(Player player, String action, DefinedArea area, Navigator n){
+    /**
+     * try to interact using default action and move closer if unsuccessful
+     * @param player local player
+     * @param area where the prop is
+     * @param n our navigator handle
+     * @return true if successful
+     */
+    public boolean moveToInteract(Player player, DefinedArea area, Navigator n){
         // check if we already interacted with a similar object recently, quit if so
         if(!shouldAct(player)) return true;
 
+        //check if area is too far for a realistic interact
+        if(area.getNearestTile(player).distance() > MAX_DISTANCE){
+            Logger.info(this.getName() + " too far, just moving instead");
+            return n.moveIfTime(area, player);
+        }
+
         //grab nearest object with our id
-        this.npc = NPCs.closest(r ->
-                r.getName().equals(this.getName())
-                && r.hasAction(action)
-                && area.contains(r.getTile()));
+        this.gObj = GameObjects.closest(r ->
+                r.getID() == this.ID
+                && area.contains(r.getTile())
+                && r.canReach());
 
         //if we didn't find object
-        if(this.npc == null){
-            Logger.info("no valid " + this.name + " to do " + action);
+        if(this.gObj == null){
+            Logger.info("no valid " + this.name + " to do default action");
             return n.moveIfTime(area, player);
 
             // if we found a nearby object, let's try interacting with it and return our success
         }else{
-            boolean success = this.npc.interact(action);
+            boolean success = this.gObj.interact();
             if(success){
-                Logger.info("successfully did " + action + " on " + this.name);
+                Logger.info("successfully did default action on " + this.name);
                 setLastInteract();
             }else{
-                Logger.error("failed to do " + action + " on " + this.name);
+                Logger.error("failed to do default action on " + this.name);
+                n.moveIfTime(area, player);
             }
             return success;
         }
@@ -321,7 +312,7 @@ public class InteractableProp {
      * @param n navigator object to use
      * @return boolean representing if we found an object
      */
-    public static boolean interactOrMove(InteractableProp[] props, Player player, Navigator n){
+    public static boolean searchAndMove(InteractableProp[] props, Player player, Navigator n){
         GameObject closestProp = null;
         GameObject found;
 
@@ -361,14 +352,14 @@ public class InteractableProp {
         Logger.debug("closest prop was " + closestName + ", " + distance + " units away");
 
         // if prop is far, move closer instead of interacting
-        if(distance > 18){
+        if(distance > MAX_DISTANCE){
             int x = closestProp.getX();
             int y = closestProp.getY();
             return n.moveIfTime(new Area(x-1, y-1, x+1, y+1), player);
         }
 
         //if close, double check that we haven't interacted with this prop too recently
-        if(!shouldAct(closestName)) {
+        if(!shouldAct(closestName) && (player.isMoving() || distance <= 1)) {
             return true;
         }
 

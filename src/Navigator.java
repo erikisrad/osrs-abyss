@@ -99,11 +99,15 @@ public class Navigator {
                 && !area.contains(Walking.getDestination()))
                 || !player.isMoving()) {
 
-            setRandomPad();
-            this.lastMove = currentTime;
             Logger.debug("clicking to move");
             boolean success = Walking.walk(area.getRandomTile());
-            if(!success){ Logger.error("failed to move");}
+            if(success){
+                Logger.debug("move successful");
+                setRandomPad();
+                this.lastMove = currentTime;
+            }else{
+                Logger.error("failed to move");
+            }
             return success;
         }else{
             Logger.debug("too early to move");

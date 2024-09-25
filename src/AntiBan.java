@@ -1,5 +1,6 @@
 import org.dreambot.api.input.Mouse;
 import org.dreambot.api.methods.Calculations;
+import org.dreambot.api.methods.container.impl.Inventory;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.utilities.Logger;
@@ -40,6 +41,48 @@ public class AntiBan {
 
     public AntiBan(AbstractScript script, int tickRate) {
         this(script, tickRate, DEFAULT_SHORT_DELAY, DEFAULT_LONG_DELAY);
+    }
+
+    public boolean doAntiBan(){
+        int event = Calculations.random(0, 11);
+        switch(event){
+            case 0: // do nothing
+                Logger.info("antiban doing nothing");
+                return true;
+
+            case 1: // exam random entity
+                Logger.info("antiban examining random entity");
+                if(Calculations.random(0, 2) == 1){
+                    Logger.info("random entity is an item");
+                    Inventory.open();
+                    idleShort();
+                }
+
+                return true;
+
+            case 2: // check stat
+                Logger.info("antiban checking relevant stat");
+                return true;
+
+            case 3: // walk somewhere
+                Logger.info("antiban walking somewhere randomly");
+                return true;
+
+            case 4: // open a menu
+                Logger.info("antiban opening random menu");
+                return true;
+
+            case 5: // mouse off-screen and afk
+                Logger.info("antiban going afk");
+                return true;
+
+            case 6: // log out
+                Logger.info("antiban logging out");
+                return true;
+        }
+
+        Logger.error("antiban failed");
+        return false;
     }
 
     public int getTick(){

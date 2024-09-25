@@ -119,6 +119,7 @@ public class CameraHandler {
 
         //don't do anything if we are already looking there
         if(yaw-32+100 > this.currentYaw+100 || this.currentYaw+100 > yaw+32+100) {
+            Logger.info("current yaw of " + this.currentYaw + " is out of bounds");
             double sigma = 15;
             int gaussian = (int) Calculations.nextGaussianRandom(yaw, sigma);
             //yaw cant be <0 or >2047
@@ -133,9 +134,7 @@ public class CameraHandler {
     /**
      * rotate camera North
      */
-    public void yawNorth(){
-        adjustYaw(NORTH);
-    }
+    public void yawNorth(){adjustYaw(NORTH);}
 
     /**
      * rotate camera East
@@ -154,9 +153,7 @@ public class CameraHandler {
     /**
      * rotate camera West
      */
-    public void yawWest(){
-        adjustYaw(WEST);
-    }
+    public void yawWest(){adjustYaw(WEST);}
 
 
 
