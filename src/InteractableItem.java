@@ -11,6 +11,7 @@ import org.dreambot.api.wrappers.items.GroundItem;
 import org.dreambot.api.wrappers.items.Item;
 
 import java.util.HashSet;
+import java.util.Objects;
 
 public class InteractableItem {
 
@@ -276,9 +277,16 @@ public class InteractableItem {
         return 0;
     }
 
-    public Item getRandomItem(){
-
+    public static Item getRandomItem(){
+        if(!Inventory.isEmpty()){
+            Item item = Inventory.getRandom(Objects::nonNull);
+            Logger.info("randomly selected item is " + item.getName());
+            return item;
+        }
+        else{
+            Logger.error("inventory is empty!");
+            return null;
+        }
     }
-
 
 }

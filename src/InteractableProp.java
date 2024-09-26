@@ -6,6 +6,8 @@ import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.interactive.Player;
 import org.dreambot.api.methods.map.Area;
 
+import java.util.List;
+
 public class InteractableProp {
 
     static private Pair<String, Long> lastInteract = new Pair<>("name", 0L);
@@ -373,4 +375,19 @@ public class InteractableProp {
         }
         return success;
     }
+
+    public static GameObject getRandomProp(){
+        try {
+            List<GameObject> props = GameObjects.all(n -> n.distance() < 12 && !n.getName().contains("null"));
+            Logger.info("props found " + props.size());
+            GameObject prop = props.get(Calculations.random(0, (props.size()-1)));
+            assert prop != null;
+            Logger.info("randomly selected prop is " + prop.getName());
+            return prop;
+        }catch(Exception err) {
+            Logger.error("failed to get random prop: " + err);
+            return null;
+        }
+    }
+
 }

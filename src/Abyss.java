@@ -31,7 +31,7 @@ public class Abyss extends AbstractScript implements ChatListener {
     private Player lp;
     private FileLogger fl;
 
-    final private int retries = 20;
+    final private int RETRIES = 20;
 
     //stats
     private int tripCounter = 0;
@@ -102,17 +102,13 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     @Override
     public void onStart() {
-        ab = new AntiBan(this, 300);
-        ch = new CameraHandler(220, 340, 300, 383);
-        n = new Navigator();
-        navAbyss = new Navigator(0, 1200, 2200);
-        fl = new FileLogger();
         Logger.log("booting script...");
+        Logger.info("using Java: " + System.getProperty("java.version"));
 
         //grabbing local player object
         int tries = 0;
         while(lp == null){
-            if(tries>retries){
+            if(tries> RETRIES){
                 Logger.error("failed to grab local player object!");
                 ScriptManager.getScriptManager().stop();
             }
@@ -130,9 +126,23 @@ public class Abyss extends AbstractScript implements ChatListener {
         //initialize stat tracking utilities
         SkillTracker.start(Skill.RUNECRAFTING);
         this.secondLastCraft = this.lastCraft = this.startTime = System.currentTimeMillis();
-        this.runesMadeEarlier = fl.readInStat("crafted");
-        this.essUsedEarlier = fl.readInStat("essence");
+        try {
+            this.runesMadeEarlier = fl.readInStat("crafted");
+            this.essUsedEarlier = fl.readInStat("essence");
+            Logger.info("read in log file");
+        }catch(Exception err){
+            Logger.warn("couldn't read in log file");
+            this.runesMadeEarlier = 0;
+            this.essUsedEarlier = 0;
+        }
         this.price = itemNatRune.getPrice();
+
+        //create needed objects
+        ab = new AntiBan(this, 300, lp);
+        ch = new CameraHandler(220, 340, 300, 383);
+        n = new Navigator();
+        navAbyss = new Navigator(0, 1200, 2200);
+        fl = new FileLogger();
 
         fl.writeLog("session start");
     }
@@ -224,7 +234,12 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     @Override
     public int onLoop() {
-        ab.mouseJiggle();
+
+        //test
+        Logger.log(ab.doAntiBan());
+        ab.idle(9999999);
+
+        ab.checkAntiBan();
         decideState();
 
         switch (State.getState()) {

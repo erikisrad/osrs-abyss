@@ -1,10 +1,15 @@
 import javafx.util.Pair;
 import org.dreambot.api.methods.Calculations;
+import org.dreambot.api.methods.container.impl.Inventory;
 import org.dreambot.api.methods.interactive.NPCs;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.GameObject;
 import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.interactive.Player;
+import org.dreambot.api.wrappers.items.Item;
+
+import java.util.List;
+import java.util.Objects;
 
 public class InteractableNPC {
 
@@ -233,6 +238,20 @@ public class InteractableNPC {
                 n.moveIfTime(area, player);
             }
             return success;
+        }
+    }
+
+    public static NPC getRandomNPC(){
+        try {
+            List<NPC> npcs = NPCs.all(n -> n.distance() < 12);
+            Logger.info("npcs found " + npcs.size());
+            NPC npc = npcs.get(Calculations.random(0, (npcs.size()-1)));
+            assert npc != null;
+            Logger.info("randomly selected npc is " + npc.getName());
+            return npc;
+        }catch(Exception err) {
+            Logger.error("failed to get random NPC: " + err);
+            return null;
         }
     }
 
