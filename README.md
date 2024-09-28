@@ -1,2 +1,2 @@
 # osrs-abyss
- an osrs script for abyssal runs
+A script that plays Runescape for you and creates abyssal runes!
