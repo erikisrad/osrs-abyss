@@ -123,6 +123,13 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
         Logger.info("grabbed local player in " + tries + " attempt(s)");
 
+        //create needed objects
+        ab = new AntiBan(this, 300, lp);
+        ch = new CameraHandler(220, 340, 300, 383);
+        n = new Navigator();
+        navAbyss = new Navigator(0, 1200, 2200);
+        fl = new FileLogger();
+
         //initialize stat tracking utilities
         SkillTracker.start(Skill.RUNECRAFTING);
         this.secondLastCraft = this.lastCraft = this.startTime = System.currentTimeMillis();
@@ -131,18 +138,11 @@ public class Abyss extends AbstractScript implements ChatListener {
             this.essUsedEarlier = fl.readInStat("essence");
             Logger.info("read in log file");
         }catch(Exception err){
-            Logger.warn("couldn't read in log file");
+            Logger.warn("couldn't read in log file: " + err);
             this.runesMadeEarlier = 0;
             this.essUsedEarlier = 0;
         }
         this.price = itemNatRune.getPrice();
-
-        //create needed objects
-        ab = new AntiBan(this, 300, lp);
-        ch = new CameraHandler(220, 340, 300, 383);
-        n = new Navigator();
-        navAbyss = new Navigator(0, 1200, 2200);
-        fl = new FileLogger();
 
         fl.writeLog("session start");
     }
@@ -234,11 +234,9 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     @Override
     public int onLoop() {
-
         //test
-        Logger.log(ab.doAntiBan());
-        ab.idle(9999999);
-
+        //Logger.log(ab.doAntiBan());
+        //ab.idle(9999999);
         ab.checkAntiBan();
         decideState();
 
@@ -286,7 +284,11 @@ public class Abyss extends AbstractScript implements ChatListener {
                         }
 
                         //if we have room in inventory, empty the pouch
-                        if (!Inventory.isFull() && pouch.interact("Empty")) {
+                        if (!Inventory.isFull()
+                                && pouch.inInventory()
+                                && pouch.interact("Empty"))
+                        {
+
                             Logger.info("emptied " + pouch.getName());
                             ab.idleShort();
                             InteractableProp.resetLastInteract();
@@ -295,10 +297,12 @@ public class Abyss extends AbstractScript implements ChatListener {
                             //if we couldn't empty pouch
                         } else if (pouch.inInventory()) {
                             Logger.error("failed to empty " + pouch.getName());
+                            processing = false;
 
                             //if we don't have that pouch
                         } else {
                             Logger.warn(pouch.getName() + " not in inventory");
+                            processing = false;
                         }
                     }
                 }
@@ -364,7 +368,7 @@ public class Abyss extends AbstractScript implements ChatListener {
                                 Logger.error("failed to withdraw " + item.getName());
                                 return -1; //exit script
                             }
-                            ab.idleShort();
+                            ab.idleLong();
                         }
 
                         if (!item.equipItem()) {
@@ -548,6 +552,12 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         if(atInnerCircle){
             State.setState(State.ACTIVATING_BUTTON);
+            return;
+        }
+
+        if(lp.getHealthPercent() < 10) {
+            Logger.info("health too low!");
+            State.setState(State.USING_SHRINE);
             return;
         }
 

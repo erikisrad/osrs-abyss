@@ -99,6 +99,7 @@ public class AntiBan {
             if(doAntiBan()){
                 Logger.info("antiban successful");
                 setEvadeFreqRoll();
+                this.lastBanEvade = System.currentTimeMillis();
                 return true;
             }else{
                 Logger.error("antiban failed");
@@ -114,8 +115,7 @@ public class AntiBan {
     }
 
     public boolean doAntiBan(){
-        int event = Calculations.random(0, 7);
-        event = 1; //test
+        int event = Calculations.random(0, 6);
         switch(event){
             case 0: // do nothing
                 Logger.info("antiban doing nothing");
@@ -137,7 +137,7 @@ public class AntiBan {
                     }else{
                         idleShort();
                         Logger.info("attempting item examine");
-                        return Inventory.drag(item, 4);
+                        return Mouse.click(Inventory.itemBounds(item), true);
                     }
 
                 }else if (roll == 1){
@@ -223,12 +223,7 @@ public class AntiBan {
                 }else{
                     return false;
                 }
-
-            case 6: // log out
-                Logger.info("antiban logging out");
-                //TODO: implement this
-                Logger.info("todo...");
-                return false;
+                //TODO: expand this. possibly logouts, open map, etc.
         }
 
         Logger.error("antiban failed");
