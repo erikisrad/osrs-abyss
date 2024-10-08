@@ -32,6 +32,8 @@ public class Abyss extends AbstractScript implements ChatListener {
     private FileLogger fl;
 
     final private int RETRIES = 20;
+    final private int XP_PER = 9;
+    final private int XP_FOR_99 = 13034431;
 
     //stats
     private int tripCounter = 0;
@@ -43,9 +45,6 @@ public class Abyss extends AbstractScript implements ChatListener {
     private long lastCraft;
     private long secondLastCraft; // second to last craft
     private int price;
-
-    final private int XP_PER = 9;
-    final private int XP_FOR_99 = 13034431;
 
     //areas
     DefinedArea areaMageTeleSmall = new DefinedArea("mageTeleSmall", 3102, 3561, 3110, 3556);
@@ -108,7 +107,7 @@ public class Abyss extends AbstractScript implements ChatListener {
         //grabbing local player object
         int tries = 0;
         while(lp == null){
-            if(tries> RETRIES){
+            if(tries > RETRIES){
                 Logger.error("failed to grab local player object!");
                 ScriptManager.getScriptManager().stop();
             }
@@ -123,7 +122,7 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
         Logger.info("grabbed local player in " + tries + " attempt(s)");
 
-        //create needed objects
+        //create other needed class objects
         ab = new AntiBan(this, 300, lp);
         ch = new CameraHandler(220, 340, 300, 383);
         n = new Navigator();
@@ -234,9 +233,6 @@ public class Abyss extends AbstractScript implements ChatListener {
 
     @Override
     public int onLoop() {
-        //test
-        //Logger.log(ab.doAntiBan());
-        //ab.idle(9999999);
         ab.checkAntiBan();
         decideState();
 
@@ -533,7 +529,6 @@ public class Abyss extends AbstractScript implements ChatListener {
         }
 
         //LOGIC
-        //STEP 0 - NATURE ALTAR
         boolean atAltar = areaNatureRealm.playerIn(lp);
         int essCount = itemPureEss.inInventoy();
 
@@ -561,7 +556,6 @@ public class Abyss extends AbstractScript implements ChatListener {
             return;
         }
 
-        //STEP 3 - OUTER RING
         boolean atOuterRing = areaOuterRing.playerIn(lp);
 
         if(atOuterRing){
@@ -572,13 +566,11 @@ public class Abyss extends AbstractScript implements ChatListener {
         boolean bankOpen = Bank.isOpen();
         boolean wearingOutfit = InteractableItem.allInEquipment(itemOutfit);
 
-        //STEP 5 - CHECKING OUTFIT
         if(bankOpen && !wearingOutfit){
             State.setState(State.EQUIPPING_OUTFIT);
             return;
         }
 
-        //STEP 6 - CHECKING ESSENCE
         if(bankOpen && 20>essCount){
             State.setState(State.WITHDRAWING_ESS);
             return;
@@ -591,7 +583,6 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         int animation = lp.getAnimation();
 
-        //STEP 7 - WAITING FOR ANIMATIONS
         if(animation == 7305 || animation == 6132){ //pool of refreshment or jumping trench
             State.setState(State.IN_ANIMATION);
             return;
@@ -602,7 +593,6 @@ public class Abyss extends AbstractScript implements ChatListener {
         boolean needChapel = (100>health || 95>stamina);
         boolean atEnclave = areaEnclave.playerIn(lp);
 
-        //STEP 9 - GOING TO CHAPEL
         if((atAltar || atEnclave) && needChapel) {
             State.setState(State.USING_SHRINE);
             return;
@@ -610,19 +600,16 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         boolean wearingGlory = itemOutfit[1].inEquipment();
 
-        //STEP 10 - USING ENCLAVE BANK
         if(atEnclave && (!wearingGlory)) {
             State.setState(State.USING_ENCLAVE_BANK);
             return;
         }
 
-        //STEP 11 - TELEPORTING TO START
         if(atEnclave || atAltar) {
             State.setState(State.TELEPORTING_TO_EDGEVILLE);
             return;
         }
 
-        //STEP 12 - GOING TO MAGE
         if(essCount>=20 && wearingOutfit){
             State.setState(State.TELEPORTING_TO_ABYSS);
             return;
@@ -630,12 +617,10 @@ public class Abyss extends AbstractScript implements ChatListener {
 
         boolean atEdgevilleBank = areaBankEdgeville.playerIn(lp);
 
-        //STEP 13 - USING BANK
         if(atEdgevilleBank){
             State.setState(State.USING_EDGEVILLE_BANK);
             return;
 
-        //STEP 14 - GOING TO EDGEVILLE
         }else{
             State.setState(State.GOING_TO_EDGEVILLE);
             return;
